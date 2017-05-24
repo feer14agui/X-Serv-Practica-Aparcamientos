@@ -20,8 +20,12 @@ from django.views.static import *
 from myproject import settings
 
 urlpatterns = [
+    url(r'^usuario.css', 'aparcamientos.views.Cambio'),
 	url(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_URL}),
-   url(r'^admin/', include(admin.site.urls)),
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'^logearse/', 'aparcamientos.views.logearse'),
+    url(r'^login', 'aparcamientos.views.logearse'),
+     url(r'^logout', 'aparcamientos.views.mylogout'),
 	url(r'^aparcamientos/$', 'aparcamientos.views.aparcamientos'),
 	url(r'^aparcamientos/(\d*)/$','aparcamientos.views.aparcamientos_id'),
 	url(r'^about/','aparcamientos.views.about'),

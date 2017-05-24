@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # Create your models here.
 class Aparcamiento(models.Model):
@@ -22,9 +23,10 @@ class Aparcamiento(models.Model):
 	Num_Comentario = models.IntegerField(default=0)
 
 class Usuario(models.Model):
-	Nombre = models.CharField(max_length=32)
-	Contraseña = models.CharField(max_length=32)
+	Nombre = models.OneToOneField(User)
 	Titulo_pagina = models.CharField(max_length=32)
+	Tamano = models.FloatField(default=1)
+	Color = models.CharField(max_length=32)
 
 class Comentario(models.Model):
 	Aparcamiento = models.ForeignKey(Aparcamiento)
@@ -32,5 +34,5 @@ class Comentario(models.Model):
 
 class Fecha(models.Model):
 	Aparcamiento = models.ForeignKey(Aparcamiento)
-	Usuario = models.ForeignKey(Usuario)
+	Usuario = models.ForeignKey(User)
 	Fecha = models.DateField()

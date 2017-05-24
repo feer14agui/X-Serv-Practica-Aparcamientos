@@ -15,7 +15,7 @@ Feel free to use and modify but please provide credits.
 	padding: 0;
 }
 a {
-	color: black;
+	color: blue;
 	font-size: 3.5mm;
 }
 a:hover {
@@ -23,8 +23,8 @@ a:hover {
 }
 body {
 	background: #655A46 url(/static/img/bg.gif);
-	color: #613A17; /*Este color lo he cambiao antes tenia 543-->*/
-	font: normal 62.5% "Lucida Sans Unicode",sans-serif;
+	/*color: #613A17; /*Este color lo he cambiao antes tenia 543*/
+	/*font: normal 10px "Lucida Sans Unicode",sans-serif;*/
 	margin-left: 200px;
 	margin-top: 50px;*/
 }
@@ -75,27 +75,26 @@ h1,h2,h3 {
 
 .Log {
 	background: #ffffff;
-	margin-left: 760px;
-	padding: 10px 0px;
-	font: bold 1.2em Verdana,sans-serif;
+	margin-left: 700px;
+	padding: 0px 0px;
+	/*font: bold 1.2em Verdana,sans-serif;*/
 	color: #ffffff;
 }
 
 .Lista{
 	float: left;
 	margin-left: 100px;
-	font: normal 1.5em Verdana,sans-serif;
+	/*font: normal 1.5em Verdana,sans-serif;*/
 }
 
 .Lista2{
 	margin-left: 600px;
 	margin-top: 30px;
-	font: normal 1.5em Verdana,sans-serif;
 }
 
 .Usuarios{
 	float:left;
-	font: normal 1.2em Verdana,sans-serif;
+	/*font: normal 1.2em Verdana,sans-serif;*/
 	margin-top: 10px;
 }
 
@@ -109,8 +108,8 @@ h1,h2,h3 {
 	float: right;;
 	font: normal 1.2em Verdana,sans-serif;
 	margin-right: 10px;
-	margin-top: 40px;
-	color: black;
+	/*margin-top: 40px;*/
+	color: white;
 	opacity: 0.8;
 }
 

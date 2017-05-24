@@ -56,7 +56,7 @@ ROOT_URLCONF = 'myproject.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['/home/fsantos/Escritorio/SARO2017/PFinal/myproject/Templates/coffee_n_cream/'],
+        'DIRS': ['/home/fsantos/Escritorio/FinalSaro/myproject/Templates/coffee_n_cream'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

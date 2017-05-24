@@ -9,6 +9,9 @@ from django.template.loader import get_template
 from django.template import Context
 from .parser import get_data
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.contrib.auth import logout, authenticate, login
+from django.contrib.auth.models import User
+
 #from xml.sax import make_parser
 #from xmlparser import myContentHandler
 #from urlib.parse import unquote_plus
@@ -24,7 +27,9 @@ def lista_aparcamientos():
 	Lista_Aparcamientos = "<ol>"
 	for i in aparcamientos:
 		Lista_Aparcamientos += i.Nombre
-		Lista_Aparcamientos += '<li><a href="'  + i.Enlace + '">' + i.Enlace + '</a><br>'
+		Lista_Aparcamientos += '<li><a href="'  + i.Enlace + '">' + i.Nombre + '</a><br>'
+		Lista_Aparcamientos += 'Dirección: ' + i.Clase_vial + ' ' + i.Nombre_via + '<br>'
+		Lista_Aparcamientos += '<li><a href=http://localhost:1234/aparcamientos/'+ str(i.ident) + '>' + 'Más información</a><br>'
 		Lista_Aparcamientos += "<br>"
 
 	Lista_Aparcamientos += "</ol>"
@@ -35,20 +40,21 @@ def lista_aparcamientos2():
 
 	#obtengo todos los aparcamientos
 	aparcamientos = Aparcamiento.objects.all()
-	aparcamientos_ordenados = aparcamientos.order_by("-Num_Comentario")
+	aparcamientos_ordenados = aparcamientos.order_by("-Num_Comentario")[:5]
 	#Creo la lista de aparcamientos
 	Lista_Aparcamientos2 = ''
 	for i in aparcamientos_ordenados:
-		Lista_Aparcamientos2 += '<li><a href="'  + i.Enlace + '">' + i.Nombre + '</a><br>'
-		Lista_Aparcamientos2 += 'Dirección: ' + i.Clase_vial + ' ' + i.Nombre_via + '<br>'
-		Lista_Aparcamientos2 += '<li><a href=http://localhost:1234/aparcamientos/'+ str(i.ident) + '>' + 'Más información</a><br>'
-		Lista_Aparcamientos2 += "<br>"
+		if i.Num_Comentario != 0:
+			Lista_Aparcamientos2 += '<li><a href="'  + i.Enlace + '">' + i.Nombre + '</a><br>'
+			Lista_Aparcamientos2 += 'Dirección: ' + i.Clase_vial + ' ' + i.Nombre_via + '<br>'
+			Lista_Aparcamientos2 += '<li><a href=http://localhost:1234/aparcamientos/'+ str(i.ident) + '>' + 'Más información</a><br>'
+			Lista_Aparcamientos2 += "<br>"
 
 	return(Lista_Aparcamientos2)
 
 #menu para loguearse
 def log ():
-	salida = '<form action="" method="POST">'
+	salida = '<form action="login" method="POST">'
 	salida += 'Nombre de usuario<br><input type="text" name="Usuario"><br>'
 	salida += 'Password<br><input type="password" name="Password">'
 	salida += '<br><br><input type="submit" value="Entrar"><br><br>'
@@ -58,15 +64,16 @@ def log ():
 
 def Lista_Usuarios():
 
-	usuarios = Usuario.objects.all()
+	usuarios = User.objects.all()
 	Lista_Usuarios = 'Listado de páginas personales: <br><br>'
 	for i in usuarios:
-		Lista_Usuarios += i.Nombre + '<br>'
-		if i.Titulo_pagina == '':
-			Lista_Usuarios += 'Título: ' + i.Nombre + '<br>'
-		else:
-			Lista_Usuarios += 'Título: ' + i.Titulo_pagina + '<br>'
-			Lista_Usuarios += '<li><a href=http://localhost:1234/'+ str(i.Nombre) + '>' + 'Más información</a><br>'
+		Lista_Usuarios += i.username + '<br>'
+		try:
+			Lista_Usuarios += 'Titulo: ' + Usuario.objects.get(Nombre=i.id).Titulo_pagina
+		except ObjectDoesNotExist:
+			Lista_Usuarios += 'Título: ' + i.username + '<br>'
+
+		Lista_Usuarios += '<li><a href=http://localhost:1234/'+ str(i.username) + '>' + 'Más información</a><br>'
 	Respuesta = Lista_Usuarios
 	return(Respuesta)
 
@@ -107,13 +114,35 @@ def footer():
 
 	return pie_pagina
 
-
-def logearse ():
+@csrf_exempt
+def logearse (request):
 
 	usuario = request.POST['Usuario']
 	contraseña = request.POST['Password']
-	return (True)
+	user = authenticate(username=usuario, password=contraseña)
+	result = request.user.is_authenticated()
+	if user is not None:
+		login(request, user)
+		return redirect('/')
+	else:
+		Log = log()
+		Texto = 'Usuario inválido'
+		Templates = get_template('fallo.html')
+		c = Context({'Texto': Texto, 'Log': Log})
+		renderizado = Templates.render(c)
+		return HttpResponse(renderizado)
 
+def mylogout(request):
+    logout(request)
+    return redirect('/')
+
+def logeado(request):
+	if request.user.is_authenticated:
+		Respuesta = '<li><a href=http://localhost:1234/>' + 'Logout</a><br>'
+	else:
+		Respuesta = log()
+
+	return(Respuesta)
 @csrf_exempt
 def aparcamientos(request):
 
@@ -121,7 +150,10 @@ def aparcamientos(request):
 	imagen_principal = '<img src="/static/img/banner2.jpg"/>'
 	Templates = get_template("hija.html")
 	#Hago el formulario para firmar por distritos
-	Formulario = "Filtrar por distritos:"
+	Formulario = ''
+	if request.user.is_authenticated():
+		Formulario = "<span class='.t-center'> Usuario: " + str(request.user) + ". " + "<a href='/logout'>Logout</a></span><br>"
+	Formulario += "Filtrar por distritos:"
 	Formulario += '<form action="" method="POST">'
 	Formulario += 'Distrito: <input type="text" name="Distrito">'
 	Formulario += "<br>"
@@ -134,6 +166,7 @@ def aparcamientos(request):
 	#Si me llegan un POST, porque he enviado un distrito a filtrar
 	if request.method == "POST":
 		Distrito_filtrado = request.POST['Distrito']
+		Distrito_filtrado = Distrito_filtrado.upper()
 
 		if Distrito_filtrado == '':
 			Lista = ("No ha introducido ningún distrito, vuelva a intentarlo" + "<br>"  + Lista)
@@ -188,7 +221,9 @@ def aparcamientos_id(request, recurso):
 			Acces = "Accesible"
 		else:
 			Acces = "No Accesible"
-
+		Logout=''
+		if request.user.is_authenticated():
+			Logout = "<span class='.t-center'> Usuario: " + str(request.user) + ". " + "<a href='/logout'>Logout</a></span><br>"
 		Respuesta = "<p>Esta es la página con la información del aparcamiento " +'<a href="'  + Enlace + '">' + Nombre + '</a>' + "</br></p>"
 		Respuesta += "Descripción: " + Descripcion + "<br>"
 		Respuesta += "<br>"
@@ -201,14 +236,15 @@ def aparcamientos_id(request, recurso):
 		Respuesta += "Telefono: " + Telefono + "<br>"
 		Respuesta += "<br>"
 		Respuesta += "Email: " + Email + "<br>"
-
-		Formulario = "<br> Añade tu comentario "
-		Formulario += '<form action="" method="POST">'
-		Formulario += 'Comentario: <input type="text" name="Comentario">'
-		Formulario += ""
-		Formulario += '<input type="submit" value="Comentar">'
-		Formulario += "<br>"
-		Formulario += "<br>"
+		Formulario = ''
+		if request.user.is_authenticated():
+			Formulario += "<br> Añade tu comentario "
+			Formulario += '<form action="" method="POST">'
+			Formulario += 'Comentario: <input type="text" name="Comentario">'
+			Formulario += ""
+			Formulario += '<input type="submit" value="Comentar">'
+			Formulario += "<br>"
+			Formulario += "<br>"
 
 		Respuesta += Formulario
 
@@ -227,7 +263,7 @@ def aparcamientos_id(request, recurso):
 			if aparcamiento == i.Aparcamiento:
 				Respuesta += i.Texto
 				Respuesta += '<br><br>'
-		c = Context({'Lista': Respuesta})#aqui tengo que meter las variables que qiero en la plantilla
+		c = Context({'Formulario': Logout,'Lista': Respuesta})#aqui tengo que meter las variables que qiero en la plantilla
 		renderizado = Templates.render(c)
 		return HttpResponse(renderizado)
 		return HttpResponse(Respuesta)
@@ -239,20 +275,27 @@ def aparcamientos_id(request, recurso):
 def usuario(request, peticion):
 
 	Templates = get_template("user.html")
-
-	Titulo_Pagina = form_titulo()
-
+	Titulo_Pagina = ''
+	if request.user.is_authenticated():
+		Titulo_Pagina = "<span class='.t-center'> Usuario: " + str(request.user) + ". " + "<a href='/logout'>Logout</a></span>"
+		Titulo_Pagina += form_titulo()
 	today = datetime.datetime.today()
+	user = User.objects.get(username=peticion)
 	#Cuando me llega un POST al seleccionar un aparcamiento
 	if request.method == "POST":
+		usuario = User.objects.get(username=peticion)
 		key = request.body.decode('utf-8').split('=')[0]
 		if key == 'Titulo':
 			Titulo = request.POST[key]
-			usuario = Usuario.objects.get(Nombre=peticion)
-			usuario.Titulo_pagina = Titulo
-			usuario.save()
+			try:
+				usuario = Usuario.objects.get(Nombre=user)
+				usuario.Titulo_pagina = Titulo
+				usuario.Tamano = '15'
+				usuario.save()
+			except ObjectDoesNotExist:
+				p = Usuario(Nombre=user, Titulo_pagina = Titulo, Tamano=15)
+				p.save()
 		elif key == 'Seleccion':
-			usuario = Usuario.objects.get(Nombre=peticion)
 			nombre_aparcamiento = request.POST[key]
 			lista_usuario = Fecha.objects.all()
 			try:
@@ -260,31 +303,49 @@ def usuario(request, peticion):
 				Encontrado = False
 				for i in lista_usuario:
 					#Si el aparcamiento ya lo tengo en la lista de seleccionados no lo añado
-					if nombre_aparcamiento == i.Aparcamiento.Nombre:
-						Encontrado = True
+					if str(i.Usuario) == str(peticion):
+						if nombre_aparcamiento == i.Aparcamiento.Nombre:
+							Encontrado = True
 
 				if Encontrado == False:
 					p = Fecha(Aparcamiento=aparcamiento, Usuario=usuario, Fecha=today)
 					p.save()
 			except ObjectDoesNotExist:
 				return('')
+		elif key == 'Tamano':
+			Tamano = request.POST['Tamano']
+			Color = request.POST['Color']
+			try:
+				username = Usuario.objects.get(Nombre=user) #existe el usuario
+			except:
+				p = Usuario(Nombre=user) #Creo el usuario porque no existe
+				p.save()
+				username = Usuario.objects.get(Nombre=user)
 
-	try:
-		usuario = Usuario.objects.get(Nombre=peticion)
-	#Si el usuario no tiene nombre de pagina
-		if usuario.Titulo_pagina == ' ':
-			Respuesta = 'Página principal de ' + usuario.Nombre + ': Página de ' + usuario.Nombre + '<br><br>'
+			if Tamano == '':
+				Tamano = '11';
+
+			username.Tamano = Tamano
+			username.Color = Color
+			username.save()
+
+	if request.user.is_authenticated():
+		if peticion == str(request.user):
+			Templates = get_template('user.html')
+			try:
+				Respuesta = Usuario.objects.get(Nombre=user).Titulo_pagina
+			except ObjectDoesNotExist:
+				Respuesta = 'Página principal de ' + str(user) + ': Página de ' + str(user) + '<br><br>'
 		else:
-			Respuesta = 'Página principal de ' + usuario.Nombre + ': ' + usuario.Titulo_pagina + '<br><br>'
-	except ObjectDoesNotExist:
-		Respuesta = 'No existe el usuario' + '<br>'
-
+			Respuesta = 'Página de ' + peticion + '<br>'
+	else:
+		Respuesta = 'Titulo de página: Pagina de ' + peticion + '<br>'
 	Formulario = ''
 
 	#Hago la lista de aparcamientos seleccionados por el usuario
-	Respuesta += '<br> Lista de aparcamientos seleccionados por el Usuario ' + usuario.Nombre + '<br>'
-	usuario = Usuario.objects.get(Nombre=peticion)
-	lista_usuario = Fecha.objects.all()
+	Respuesta += '<br> Lista de aparcamientos seleccionados por el Usuario ' + str(user) + '<br>'
+	usuario = User.objects.get(username=peticion)
+	lista_usuario = Fecha.objects.filter(Usuario=usuario)
 	paginator = Paginator(lista_usuario,5)
 	pag = request.GET.get('page')
 
@@ -294,7 +355,7 @@ def usuario(request, peticion):
 		aparcamientos_selec = paginator.page(1)
 	except:
 		aparcamientos_selec = paginator.page(paginator.num_pages)
-	for i in lista_usuario:
+	for i in aparcamientos_selec:
 		Formulario += '<br>'
 		Formulario += '<li><a href="'  + i.Aparcamiento.Enlace + '">' + i.Aparcamiento.Nombre + '</a><br>'
 		Formulario += 'Dirección: ' + i.Aparcamiento.Clase_vial + ' ' + i.Aparcamiento.Nombre_via + '<br>'
@@ -304,22 +365,48 @@ def usuario(request, peticion):
 
 
 	#Hago la lista de todos los aparcamientos para poder seleccionarlos
-	Respuesta2 = 'Lista de aparcamientos <br><br>'
+	Respuesta2=''
+	if request.user.is_authenticated():
+		if str(request.user) == str(peticion):
+			Respuesta2 = '<br><br><form action="" method="POST">'
+			Respuesta2 += 'Modifica tamaño de letra <br><input type="text" name="Tamano"><br>'
+			Respuesta2 += 'Modifica color de letra <br><input type="color" name="Color"><br>'
+			Respuesta2 += '<input type="submit" value="Entrar"><br><br>'
+			Respuesta2 += '</form>'
+			Respuesta2 += 'Lista de aparcamientos <br><br>'
 	aparcamientos = Aparcamiento.objects.all()
 	Lista_Aparcamientos = ''
 	Boton = ''
 	for i in aparcamientos:
 		Respuesta2 += i.Nombre
 		Respuesta2 += "<br>"
+		if request.user.is_authenticated():
+			if str(request.user) == str(peticion):
+				Respuesta2 += '<form action="" method="POST">'
+				Respuesta2 += '<button type="submit" name="Seleccion" value="' + i.Nombre + '">Seleccion</button><br>'
+				Respuesta2 += "<br>"
+		else:
+			Respuesta2 += '<br>'
 
-		Respuesta2 += '<form action="" method="POST">'
-		Respuesta2 += '<button type="submit" name="Seleccion" value="' + i.Nombre + '">Seleccion</button><br>'
-		Respuesta2 += "<br>"
-
-	c = Context({'Lista': Respuesta, 'Lista2': Respuesta2, 'Titulo_Pagina': Titulo_Pagina})#aqui tengo que meter las variables que qiero en la plantilla
+	c = Context({'Lista': Respuesta, 'aparcamientos_selec': aparcamientos_selec, 'Lista2': Respuesta2, 'Titulo_Pagina': Titulo_Pagina})#aqui tengo que meter las variables que qiero en la plantilla
 	renderizado = Templates.render(c)
 	return HttpResponse(renderizado)
-	return HttpResponse(Respuesta)
+
+def Cambio (request):
+
+	if request.user.is_authenticated():#si el usuario esta autenticado saco el tamaño y el color de sus variables
+		user = User.objects.get(username=request.user)
+		usuario = Usuario.objects.get(Nombre=user)
+		Tamano = str(usuario.Tamano) + 'px'
+		Color = usuario.Color
+	else:#si el usuario no esta logeado pongo un tamaño y color por defecto
+		Tamano = '13px'
+		Color = '#613A17'
+	css = get_template('usuario.css')
+	c = Context({'Tamano': Tamano, 'Color': Color})#aqui tengo que meter las variables que qiero en la plantilla
+	renderizado = css.render(c)
+
+	return HttpResponse(renderizado,content_type='text/css')
 
 @csrf_exempt
 def pag_ppal (request):
@@ -328,14 +415,18 @@ def pag_ppal (request):
 	if len(Listado) == 0:
 		get_data()
 
-	Logout= '<li><a href=http://localhost:1234/>' + 'Logout</a><br>'
+	if request.user.is_authenticated():
+		Log = 'Página de ' + str(request.user) + '<br>'
+		Log += "<span class='.t-center'> Usuario: " + str(request.user) + ". " + "<a href='/logout'>Logout</a></span>"
+	else:
+		Log = log()
 	pie_pagina = footer()
 	imagen_principal = '<img src="/static/img/banner2.jpg"/>'
 	Templates = get_template("index.html")
 
 	#obtengo todos los aparcamientos
 	Lista = lista_aparcamientos2()
-	Log = log()
+	#Log = log()
 	Respuesta = Log + Lista
 	Todos = todos()
 	About = red_about()
@@ -353,7 +444,6 @@ def pag_ppal (request):
 		value = request.body.decode('utf-8').split('=')[1]
 
 		if key == 'Accesibles':
-			print(value)
 			Respuesta = Log + Usuarios + '<br>'
 	#Ahora paso a hacer el listado de los aparcamientos accesibles
 			aparcamientos_accesibles = Aparcamiento.objects.filter(Accesibilidad=1)
@@ -373,24 +463,6 @@ def pag_ppal (request):
 					Lista += 'Dirección: ' + i.Clase_vial + ' ' + i.Nombre_via + '<br>'
 					Lista += '<li><a href=http://localhost:1234/aparcamientos/'+ str(i.ident) + '>' + 'Más información</a><br>'
 					Lista += "<br>"
-
-
-		elif key == 'Usuario':
-			user = request.POST['Usuario']
-			contraseña = request.POST['Password']
-			try:
-				usuario = Usuario.objects.get(Nombre=user)
-				print(user)
-				print(contraseña)
-				print(usuario.Contraseña)
-				if contraseña == usuario.Contraseña:
-					Log = 'Estas registrado como ' + usuario.Nombre + Logout
-				else:
-					Log = 'Contraseña incorrecta' + Log
-			except ObjectDoesNotExist:
-
-				Lista = ('<br>Este usuario no está registrado<br><br>') + Lista
-
 		elif key == 'Todos':
 			redirect(aparcamientos)
 
@@ -412,7 +484,7 @@ def about(request):
 	cuerpo += u'<span>Funcionamiento:</span>'
 	cuerpo += '<br><ul style="list-style-type: square">'
 	cuerpo += u'<li>Página principal: muestra las 5 aparcamientos mas comentados y posteriormente un listado con las paginas personales. EL visitante se podra logear.</li>'
-	cuerpo += u'<li>Pagina personal de usuario: muestra las aparcamientos seleccionados por el usuario. Además de un listado de los aparcamientos para poder seleccionarlos</li>'
+	cuerpo += u'<li>Pagina personal de usuario: muestra las aparcamientos seleccionados por el usuario, un listado de los aparcamientos para poder seleccionarlos, un formulario para cambiar el título de la página y otro para cambiar el css</li>'
 	cuerpo += '<li>Aparcamientos: muestra todas los aparcamientos. Permite filtrarlos por distrito.</li>'
 	cuerpo += u'<li>Aparcamiento: cada aparcamiento tiene su página con información y la posibilidad de añadir comentarios.</li>'
 	cuerpo += u'<li>Además se permite modificar varios aspectos de la página web, como el estilo o el título de su página personal.</li></ul>'
@@ -423,13 +495,13 @@ def about(request):
 
 def XML (request,peticion):
 
-	print(peticion)
-	usuario = Usuario.objects.get(Nombre=peticion)
-	lista_usuario = Fecha.objects.all()
-	xml = "<?xml version='1.0' encoding='UTF-8' ?>"
-	xml += "<data><usuario name='" + usuario.Nombre +"'>"
-	for i in lista_usuario:
-		if i.Usuario.Nombre == usuario.Nombre:
+	user = User.objects.get(username=peticion)
+	try:
+		usuario = Usuario.objects.get(Nombre=user)
+		lista_usuario = Fecha.objects.filter(Usuario=usuario.Nombre)
+		xml = "<?xml version='1.0' encoding='UTF-8' ?>"
+		xml += "<data><usuario name='" + str(request.user) +"'>"
+		for i in lista_usuario:
 			aparcamiento = i.Aparcamiento
 			#xml += "<aparcamiento>"
 			xml += '<nombre name="' + aparcamiento.Nombre + '">'
@@ -445,8 +517,7 @@ def XML (request,peticion):
 			xml += '<Descripccion>' + aparcamiento.Descripcion + '</Descripccion>'
 			xml += '<Accesibilidad>' + str(aparcamiento.Accesibilidad) + '</Accesibilidad>'
 			xml += '</nombre>'
-		else:
-			xml +=''
-
-	xml += '</usuario></data>'
+		xml += '</usuario></data>'
+	except ObjectDoesNotExist:
+		print('')
 	return HttpResponse(xml, content_type="text/xml")
